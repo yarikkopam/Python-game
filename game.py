@@ -19,10 +19,89 @@
 
 import random
 
-# --- Заголовок ------------------------------------
+# --- Правила игры ---------------------------------
 title = "ЗАБЫТЫЙ РУДНИК"
 frame = "=" * 20
 
+base_attack = 10
+enemy_hp_start = 45
+
+enemies = ["гуль", "скелет", "паук", "нетопырь"]
+log = []
+
+
+# --- Функции --------------------------------------
+
+def hero_hit(strike_n):
+    """Урон героя в удар номер strike_n: каждый третий — критический.
+
+    Берёт правила damage и crit_damage из верха файла.
+    Возвращает урон удара (вещественное число).
+    """
+    if strike_n % 3 == 0:
+        return crit_damage
+    return damage
+
+
+def fight(enemy, hero_health):
+    """Бой с enemy до гибели одного из двоих.
+
+    Печатает строки раундов. Возвращает (rounds, won, hero_health):
+    таблица раундов, признак победы героя и здоровье после боя.
+    """
+    enemy_hp = enemy_hp_start
+    round_n = 0
+    strike_n = 0
+    rounds = []
+    while enemy_hp > 0 and hero_health > 0:
+        strike_n += 1
+        round_n += 1
+        hit = hero_hit(strike_n)
+        enemy_hp -= hit
+        enemy_strike = 0
+        mark = "."
+        if hit == crit_damage:
+            mark = " — критический!"
+        if enemy_hp <= 0:
+            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Враг падает.")
+        else:
+            enemy_strike = random.randint(2, 6)
+            hero_health -= enemy_strike
+            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Здоровье врага: {enemy_hp:.1f}. Враг бьёт в ответ на {enemy_strike}.")
+        rounds.append([round_n, hit, enemy_strike])
+    return rounds, enemy_hp <= 0, hero_health
+
+
+def print_leaderboard(battle_log):
+    """Печатает топ-3 раундов по урону героя и рекорд врага.
+
+    Ничего не возвращает (None): контракт — вывести.
+    """
+    if not battle_log:
+        print("Ты ещё не дрался в этом забеге.")
+        return
+    top = sorted(battle_log, key=lambda r: r[1], reverse=True)[:3]
+    print("Лидерборд (урон героя):")
+    for i in range(len(top)):
+        print(f"{i + 1}. Раунд {top[i][0]}: {top[i][1]:.1f}")
+    worst = max(battle_log, key=lambda r: r[2])
+    print(f"Сильнейший удар врага: {worst[2]} (раунд {worst[0]}).")
+
+
+def print_run_summary(battle_log):
+    """Печатает суммарный и средний урон героя за забег.
+
+    Ничего не возвращает (None): контракт — вывести.
+    """
+    total = sum(r[1] for r in battle_log)
+    rounds = len(battle_log)
+    if rounds > 0:
+        print(f"Урон: {total:.1f} за {rounds} раундов, в среднем {total / rounds:.1f}.")
+    else:
+        print("В этом забеге боёв не было.")
+
+
+# --- Заголовок ------------------------------------
 print(frame)
 print("   " + title + "   ")
 print(frame)
@@ -56,7 +135,6 @@ while True:
         print(f"{e}. Введите все четыре снова:")
 
 # --- Расчёт урона ---------------------------------
-base_attack = 10
 damage = base_attack + strength * 1.5
 crit_damage = damage * 2
 stamina = health // 10 + luck
@@ -72,10 +150,6 @@ print(f"Урон героя: {damage:.1f}")
 print(f"Критический урон: {crit_damage:.1f}")
 print(f"Запас сил: {stamina}")
 print()
-
-# --- Враги и журнал боя ---------------------------
-enemies = ["гуль", "скелет", "паук", "нетопырь"]
-log = []
 
 # --- Главный цикл игры ----------------------------
 menu_last = 8
@@ -135,9 +209,7 @@ try:
                 print()
                 print(f"Наносите {strikes} ударов.")
                 for i in range(1, strikes + 1):
-                    hit_damage = damage
-                    if i % 3 == 0:
-                        hit_damage = crit_damage
+                    hit_damage = hero_hit(i)
                     if hit_damage == crit_damage:
                         print(f"Удар {i}: {hit_damage:.1f} — критический!")
                         crit_count += 1
@@ -154,40 +226,15 @@ try:
                     print("Ты спускаешься по лестнице, но рудник пуст — врагов больше нет.")
                 else:
                     enemy = random.choice(enemies)
-                    enemy_hp = 45
-                    round_n = 0
                     print(f"Ты спускаешься по лестнице. Из темноты выходит {enemy}!")
-                    while enemy_hp > 0 and health > 0:
-                        round_n += 1
-                        hit = damage
-                        if round_n % 3 == 0:
-                            hit = crit_damage
-                        enemy_hp -= hit
-                        enemy_strike = 0
-                        mark = "."
-                        if hit == crit_damage:
-                            mark = " — критический!"
-                        if enemy_hp <= 0:
-                            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Враг падает.")
-                        else:
-                            enemy_strike = random.randint(2, 6)
-                            health -= enemy_strike
-                            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Здоровье врага: {enemy_hp:.1f}. Враг бьёт в ответ на {enemy_strike}.")
-                        log.append([round_n, hit, enemy_strike])
-                    if enemy_hp <= 0:
+                    rounds, won, health = fight(enemy, health)
+                    log.extend(rounds)
+                    if won:
                         enemies.remove(enemy)
                         print(f"{enemy.capitalize()} побеждён! Врагов осталось: {len(enemies)}.")
-                        print(f"Бой: {round_n} раундов.")
+                        print(f"Бой: {len(rounds)} раундов.")
             case "8":
-                if not log:
-                    print("Ты ещё не дрался в этом забеге.")
-                else:
-                    top = sorted(log, key=lambda r: r[1], reverse=True)[:3]
-                    print("Лидерборд (урон героя):")
-                    for i in range(len(top)):
-                        print(f"{i + 1}. Раунд {top[i][0]}: {top[i][1]:.1f}")
-                    worst = max(log, key=lambda r: r[2])
-                    print(f"Сильнейший удар врага: {worst[2]} (раунд {worst[0]}).")
+                print_leaderboard(log)
             case "0":
                 print("Ты поднимаешься по лестнице к свету. Рудник остаётся позади.")
                 outcome = "выход"
@@ -211,10 +258,5 @@ finally:
         print(f"Забег окончен, {hero_name}. Действий совершено: {actions}.")
     else:
         print(f"Сеанс прерван, {hero_name}. Действий совершено: {actions}.")
-    total = sum(r[1] for r in log)
-    rounds = len(log)
-    if rounds > 0:
-        print(f"Урон: {total:.1f} за {rounds} раундов, в среднем {total / rounds:.1f}.")
-    else:
-        print("В этом забеге боёв не было.")
+    print_run_summary(log)
     print(frame)
