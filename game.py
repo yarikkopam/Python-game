@@ -9,7 +9,12 @@
 #
 # Пункт 6 — «тренировка»: герой наносит серию ударов
 # по тренировочной глыбе, каждый третий удар — критический.
+#
+# Пункт 7 — «спуск вниз»: случайный враг из списка,
+# бой раундами со случайным уроном, журнал раундов.
 # ================================================
+
+import random
 
 # --- Заголовок ------------------------------------
 title = "ЗАБЫТЫЙ РУДНИК"
@@ -32,13 +37,10 @@ print("Настройка героя.")
 print("Здоровье, сила, ловкость, удача — по одному числу в строке:")
 while True:
     try:
-        try:
-            health = int(input())
-            strength = int(input())
-            agility = int(input())
-            luck = int(input())
-        except ValueError:
-            raise ValueError("Ой: одна из строк не число")
+        health = int(input())
+        strength = int(input())
+        agility = int(input())
+        luck = int(input())
         if health <= 0:
             raise ValueError(f"Здоровье должно быть положительным, а введено {health}")
         if strength < 0 or agility < 0 or luck < 0:
@@ -65,8 +67,12 @@ print(f"Критический урон: {crit_damage:.1f}")
 print(f"Запас сил: {stamina}")
 print()
 
+# --- Враги и журнал боя ---------------------------
+enemies = ["гуль", "скелет", "паук", "нетопырь"]
+log = []
+
 # --- Главный цикл игры ----------------------------
-menu_last = 6
+menu_last = 7
 running = True
 actions = 0
 outcome = "прерывание"
@@ -80,6 +86,7 @@ try:
         print("4 - постучать по стене")
         print("5 - зажечь фонарь")
         print("6 - тренировка")
+        print("7 - спуск вниз")
         print("0 - выйти из рудника")
         while True:
             choice = input()
@@ -135,6 +142,36 @@ try:
                 print(f"Общий урон: {total_damage:.1f}")
                 print(f"Средний урон: {total_damage / strikes:.1f}")
                 stamina -= train_cost
+            case "7":
+                if not enemies:
+                    print("Ты спускаешься по лестнице, но рудник пуст — врагов больше нет.")
+                else:
+                    enemy = random.choice(enemies)
+                    enemy_hp = 45
+                    round_n = 0
+                    print(f"Ты спускаешься по лестнице. Из темноты выходит {enemy}!")
+                    while enemy_hp > 0 and health > 0:
+                        round_n += 1
+                        hit = damage
+                        if round_n % 3 == 0:
+                            hit = crit_damage
+                        enemy_hp -= hit
+                        enemy_strike = 0
+                        mark = "."
+                        if hit == crit_damage:
+                            mark = " — критический!"
+                        if enemy_hp <= 0:
+                            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Враг падает.")
+                        else:
+                            enemy_strike = random.randint(2, 6)
+                            health -= enemy_strike
+                            print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Здоровье врага: {enemy_hp:.1f}. Враг бьёт в ответ на {enemy_strike}.")
+                        log.append(f"раунд {round_n}: герой -{hit:.1f}, враг -{enemy_strike}")
+                    if enemy_hp <= 0:
+                        enemies.remove(enemy)
+                        print(f"{enemy.capitalize()} побеждён! Врагов осталось: {len(enemies)}.")
+                        print(f"Бой: {round_n} раундов.")
+                        print(log[-1])
             case "0":
                 print("Ты поднимаешься по лестнице к свету. Рудник остаётся позади.")
                 outcome = "выход"
@@ -142,7 +179,7 @@ try:
         if running:
             actions += 1
         print()
-        print(f"Здоровье: {health}  Запас сил: {stamina}")
+        print(f"Здоровье: {health}  Запас сил: {stamina}  Врагов осталось: {len(enemies)}")
         if health <= 0:
             print(f"{hero_name} падает без сил. Рудник забирает ещё одного искателя.")
             outcome = "гибель"
