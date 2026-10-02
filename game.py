@@ -12,6 +12,9 @@
 #
 # Пункт 7 — «спуск вниз»: случайный враг из списка,
 # бой раундами со случайным уроном, журнал раундов.
+#
+# Пункт 8 — «лидерборд»: топ-3 раундов по урону героя
+# и рекорд врага за весь забег.
 # ================================================
 
 import random
@@ -37,10 +40,13 @@ print("Настройка героя.")
 print("Здоровье, сила, ловкость, удача — по одному числу в строке:")
 while True:
     try:
-        health = int(input())
-        strength = int(input())
-        agility = int(input())
-        luck = int(input())
+        try:
+            health = int(input())
+            strength = int(input())
+            agility = int(input())
+            luck = int(input())
+        except ValueError:
+            raise ValueError("Ой: одна из строк не число")
         if health <= 0:
             raise ValueError(f"Здоровье должно быть положительным, а введено {health}")
         if strength < 0 or agility < 0 or luck < 0:
@@ -72,7 +78,7 @@ enemies = ["гуль", "скелет", "паук", "нетопырь"]
 log = []
 
 # --- Главный цикл игры ----------------------------
-menu_last = 7
+menu_last = 8
 running = True
 actions = 0
 outcome = "прерывание"
@@ -87,6 +93,7 @@ try:
         print("5 - зажечь фонарь")
         print("6 - тренировка")
         print("7 - спуск вниз")
+        print("8 - лидерборд")
         print("0 - выйти из рудника")
         while True:
             choice = input()
@@ -166,12 +173,21 @@ try:
                             enemy_strike = random.randint(2, 6)
                             health -= enemy_strike
                             print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Здоровье врага: {enemy_hp:.1f}. Враг бьёт в ответ на {enemy_strike}.")
-                        log.append(f"раунд {round_n}: герой -{hit:.1f}, враг -{enemy_strike}")
+                        log.append([round_n, hit, enemy_strike])
                     if enemy_hp <= 0:
                         enemies.remove(enemy)
                         print(f"{enemy.capitalize()} побеждён! Врагов осталось: {len(enemies)}.")
                         print(f"Бой: {round_n} раундов.")
-                        print(log[-1])
+            case "8":
+                if not log:
+                    print("Ты ещё не дрался в этом забеге.")
+                else:
+                    top = sorted(log, key=lambda r: r[1], reverse=True)[:3]
+                    print("Лидерборд (урон героя):")
+                    for i in range(len(top)):
+                        print(f"{i + 1}. Раунд {top[i][0]}: {top[i][1]:.1f}")
+                    worst = max(log, key=lambda r: r[2])
+                    print(f"Сильнейший удар врага: {worst[2]} (раунд {worst[0]}).")
             case "0":
                 print("Ты поднимаешься по лестнице к свету. Рудник остаётся позади.")
                 outcome = "выход"
@@ -195,4 +211,10 @@ finally:
         print(f"Забег окончен, {hero_name}. Действий совершено: {actions}.")
     else:
         print(f"Сеанс прерван, {hero_name}. Действий совершено: {actions}.")
+    total = sum(r[1] for r in log)
+    rounds = len(log)
+    if rounds > 0:
+        print(f"Урон: {total:.1f} за {rounds} раундов, в среднем {total / rounds:.1f}.")
+    else:
+        print("В этом забеге боёв не было.")
     print(frame)
