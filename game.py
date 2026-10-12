@@ -3,23 +3,18 @@
 # Автор: Александров Ярослав
 # Дата: октябрь 2026
 #
-# Пункт 4 — «постучать по стене»: герой простукивает
-# породу и слушает эхо. Бесплатное действие.
+# Пункт 7 — «спуск вниз»: враг берёт карточку из словаря
+# enemy_stats (hp, damage, loot). Урон врага — ровно его
+# характеристика, трофеи — его loot.
 #
-# Пункт 6 — «тренировка»: серия ударов по глыбе,
-# каждый третий удар — критический.
+# Пункт 9 — «магазин»: цены живут в словаре prices,
+# покупка по названию, количество по умолчанию 1.
+# Купленное падает в рюкзак-словарь inventory.
 #
-# Пункт 7 — «спуск вниз»: случайный враг, бой раундами,
-# журнал раундов. Победа приносит золото (трофеи).
+# Пункт 10 — «рюкзак»: перебор items, пустой рюкзак ложен.
 #
-# Пункт 8 — «лидерборд»: топ-3 раундов по урону героя
-# и рекорд врага за весь забег.
-#
-# Пункт 9 — «магазин»: золото тратится на зелья, масло
-# и эликсир. Количество по умолчанию 1 (пустой ввод),
-# надбавка урона передаётся в бой именованным bonus=.
-# Эликсир даёт +2 к урону за штуку до конца забега
-# (надбавка прибавляется после крита).
+# Пункт 11 — «выпить зелье»: лечит до потолка max_health,
+# последняя штука удаляет пару из словаря.
 # ================================================
 
 import random
@@ -29,12 +24,20 @@ title = "ЗАБЫТЫЙ РУДНИК"
 frame = "=" * 20
 
 base_attack = 10
-enemy_hp_start = 45
 
 enemies = ["гуль", "скелет", "паук", "нетопырь"]
+enemy_stats = {
+    "скелет": {"hp": 45, "damage": 6, "loot": 25},
+    "гуль": {"hp": 30, "damage": 4, "loot": 15},
+    "паук": {"hp": 20, "damage": 3, "loot": 10},
+    "нетопырь": {"hp": 12, "damage": 2, "loot": 5},
+}
+prices = {"зелье": 10, "масло": 15, "эликсир": 40}
+
 log = []
 gold_total = 0
 ability_bonus = 0
+inventory = {}
 
 
 # --- Функции --------------------------------------
@@ -53,13 +56,13 @@ def hero_hit(strike_n):
 def fight(enemy, hero_health, bonus=0):
     """Бой с enemy до гибели одного из двоих.
 
-    bonus — надбавка к урону героя, по умолчанию 0: без эликсира
-    бой идёт как прежде. Надбавка прибавляется к удару после
-    крита. Печатает строки раундов.
-    Возвращает (rounds, won, hero_health, loot): таблица раундов,
-    признак победы, здоровье после боя и трофеи (0 при поражении).
+    Карточка врага берётся из enemy_stats по имени: нужны ключи
+    hp, damage, loot. bonus — надбавка к урону героя, по умолчанию 0,
+    прибавляется после крита. Печатает строки раундов.
+    Возвращает (rounds, won, hero_health, loot).
     """
-    enemy_hp = enemy_hp_start
+    stats = enemy_stats[enemy]
+    enemy_hp = float(stats["hp"])
     round_n = 0
     strike_n = 0
     rounds = []
@@ -75,15 +78,13 @@ def fight(enemy, hero_health, bonus=0):
         if enemy_hp <= 0:
             print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Враг падает.")
         else:
-            enemy_strike = random.randint(2, 6)
-            hero_health -= enemy_strike
+            blow = stats["damage"]
+            enemy_strike = blow
+            hero_health -= blow
             print(f"Раунд {round_n}: ты наносишь {hit:.1f} урона{mark} Здоровье врага: {enemy_hp:.1f}. Враг бьёт в ответ на {enemy_strike}.")
         rounds.append([round_n, hit, enemy_strike])
     won = enemy_hp <= 0
-    if won:
-        loot = 10 + 5 * round_n
-    else:
-        loot = 0
+    loot = stats["loot"] if won else 0
     return rounds, won, hero_health, loot
 
 
@@ -181,7 +182,7 @@ print(f"Запас сил: {stamina}")
 print()
 
 # --- Главный цикл игры ----------------------------
-menu_last = 9
+menu_last = 11
 running = True
 actions = 0
 outcome = "прерывание"
@@ -198,6 +199,8 @@ try:
         print("7 - спуск вниз")
         print("8 - лидерборд")
         print("9 - магазин")
+        print("10 - рюкзак")
+        print("11 - выпить зелье")
         print("0 - выйти из рудника")
         while True:
             choice = input()
@@ -271,36 +274,46 @@ try:
                 print_leaderboard(log)
             case "9":
                 print("Магазин:")
-                print("1 - зелье (+10 здоровья): 10 золота")
-                print("2 - масло (+5 сил): 15 золота")
-                print("3 - эликсир (+2 к урону до конца забега): 40 золота")
-                print("Номер предмета (0 — не покупать):")
-                item = input()
-                prices = (10, 15, 40)
-                names = ("зелье", "масло", "эликсир")
-                if item in ("1", "2", "3"):
-                    price = prices[int(item) - 1]
-                    name = names[int(item) - 1]
-                    print("Количество (Enter — одна штука):")
-                    qty_line = input()
-                    if qty_line == "":
-                        qty = 1
-                        gold_total, ok = buy(price, gold_total)
-                    else:
-                        qty = int(qty_line)
-                        gold_total, ok = buy(price, gold_total, quantity=qty)
-                    if ok:
-                        if item == "1":
-                            health = min(health + 10 * qty, max_health)
-                        elif item == "2":
-                            stamina = min(stamina + 5 * qty, max_stamina)
+                for name, price in prices.items():
+                    print(f"{name}: {price} золота")
+                print("Название предмета (пустая строка — не покупать):")
+                name = input()
+                if name != "":
+                    if name in prices:
+                        price = prices[name]
+                        print("Количество (Enter — одна штука):")
+                        qty_line = input()
+                        if qty_line == "":
+                            qty = 1
+                            gold_total, ok = buy(price, gold_total)
                         else:
-                            ability_bonus += 2 * qty
-                        print(f"Куплено: {qty} шт. {name} за {price * qty} золота. Осталось: {gold_total}.")
+                            qty = int(qty_line)
+                            gold_total, ok = buy(price, gold_total, quantity=qty)
+                        if ok:
+                            inventory[name] = inventory.get(name, 0) + qty
+                            if name == "эликсир":
+                                ability_bonus += 2 * qty
+                            print(f"Куплено: {qty} шт. {name} за {price * qty} золота. Осталось: {gold_total}.")
+                        else:
+                            print(f"Не хватает золота: нужно {price * qty}, есть {gold_total}.")
                     else:
-                        print(f"Не хватает золота: нужно {price * qty}, есть {gold_total}.")
-                elif item != "0":
-                    print("Такого товара нет в магазине.")
+                        print("Такого товара нет в магазине.")
+            case "10":
+                if not inventory:
+                    print("Рюкзак пуст.")
+                else:
+                    print("Рюкзак:")
+                    for name, qty in inventory.items():
+                        print(f"{name}: {qty} шт.")
+            case "11":
+                if inventory.get("зелье", 0) == 0:
+                    print("В рюкзаке нет зелий.")
+                else:
+                    health = min(health + 10, max_health)
+                    inventory["зелье"] -= 1
+                    if inventory["зелье"] == 0:
+                        del inventory["зелье"]
+                    print(f"Ты выпиваешь зелье. Здоровье: {health}. Осталось зелий: {inventory.get('зелье', 0)}.")
             case "0":
                 print("Ты поднимаешься по лестнице к свету. Рудник остаётся позади.")
                 outcome = "выход"
@@ -325,4 +338,10 @@ finally:
     else:
         print(f"Сеанс прерван, {hero_name}. Действий совершено: {actions}.")
     print_run_summary(log)
+    if inventory:
+        print("В рюкзаке осталось:")
+        for name, qty in inventory.items():
+            print(f"{name}: {qty} шт.")
+    else:
+        print("В рюкзаке осталось: пусто.")
     print(frame)
